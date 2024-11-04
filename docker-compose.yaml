@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  vault1:
+    image: hashicorp/vault:1.18.0
+    container_name: vault1
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8202
+      VAULT_LOCAL_CONFIG: |
+        {
+          "storage": {
+            "raft": {
+              "path": "/vault/raft",
+              "node_id": "vault1"
+            }
+          },
+          "listener": [{
+            "tcp": {
+              "address": "0.0.0.0:8202",
+              "cluster_address": "0.0.0.0:8201",
+              "tls_disable": true,
+              "tls_disable_client_certs" : "true"
+            }
+          }],
+          "api_addr": "http://vault1:8202",
+          "disable_mlock": true,
+          "cluster_addr": "http://vault1:8201",
+          "enable_response_header_raft_node_id": "true",
+          "cluster_name" : "poc",
+          "ui": true
+        }
+    ports:
+      - "8201:8201"  # Vault cluster port for inter-node communication
+    networks:
+      - vault-network  # Attach to the custom network
+    volumes:
+      - ./vault1-data:/vault/raft
+    cap_add:
+      - IPC_LOCK
+    command: vault server -config=/vault/config/local.json
+
+  vault2:
+    image: hashicorp/vault:1.18.0
+    container_name: vault2
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8202
+      VAULT_LOCAL_CONFIG: |
+        {
+          "storage": {
+            "raft": {
+              "path": "/vault/raft",
+              "node_id": "vault2"
+            }
+          },
+          "listener": [{
+            "tcp": {
+              "address": "0.0.0.0:8202",
+              "cluster_address": "0.0.0.0:8201",
+              "tls_disable": true,
+              "tls_disable_client_certs" : "true"
+            }
+          }],
+          "retry_join": {
+              "leader_api_addr" : "https://vault1:8202",
+          },
+          "disable_mlock": true,
+          "enable_response_header_raft_node_id": "true",
+          "cluster_name" : "poc",
+          "api_addr": "http://vault2:8202",
+          "cluster_addr": "http://vault2:8201",
+          "ui": true
+        }
+    ports:
+      - "8203:8201"  # Vault cluster port for inter-node communication
+    networks:
+      - vault-network  # Attach to the custom network
+    volumes:
+      - ./vault2-data:/vault/raft
+    cap_add:
+      - IPC_LOCK
+    depends_on:
+      - vault1
+    command: vault server -config=/vault/config/local.json
+
+  nginx:
+    image: nginx:latest
+    container_name: vault-nginx
+    ports:
+      - "8200:80"  # NGINX is exposed on port 8200, redirecting to Vault instances
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # NGINX configuration file
+    depends_on:
+      - vault1
+      - vault2
+    networks:
+      - vault-network  # Attach to the custom network
+
+networks:
+  vault-network:
+    driver: bridge  # Use bridge network mode
