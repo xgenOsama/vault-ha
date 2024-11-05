@@ -12,6 +12,8 @@ docker exec -it vault2 vault operator unseal sOlBg2y3JCYWMwuId8TvYyjojTcS4ZDpIir
 docker exec -it vault3 vault operator raft join http://vault1:8202
 docker exec -it vault3 vault operator unseal sOlBg2y3JCYWMwuId8TvYyjojTcS4ZDpIirefsGw0tM=
 
+export VAULT_TOKEN=hvs.rPhP3PybB9U7zgPt4hYBZtov
+vault operator raft remove-peer vault3 
 
 
 
