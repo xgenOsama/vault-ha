@@ -9,6 +9,9 @@ docker exec -it vault2 vault operator raft join http://vault1:8202
 
 docker exec -it vault2 vault operator unseal sOlBg2y3JCYWMwuId8TvYyjojTcS4ZDpIirefsGw0tM=
 
+docker exec -it vault3 vault operator raft join http://vault1:8202
+docker exec -it vault3 vault operator unseal sOlBg2y3JCYWMwuId8TvYyjojTcS4ZDpIirefsGw0tM=
+
 
 
 

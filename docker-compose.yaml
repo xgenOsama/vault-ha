@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   vault1:
     image: hashicorp/vault:1.18.0
@@ -22,6 +20,12 @@ services:
               "tls_disable_client_certs" : "true"
             }
           }],
+          "retry_join": {
+              "leader_api_addr" : "https://vault2:8202",
+          },
+          "retry_join": {
+              "leader_api_addr" : "https://vault3:8202",
+          },
           "api_addr": "http://vault1:8202",
           "disable_mlock": true,
           "cluster_addr": "http://vault1:8201",
@@ -63,6 +67,9 @@ services:
           "retry_join": {
               "leader_api_addr" : "https://vault1:8202",
           },
+          "retry_join": {
+              "leader_api_addr" : "https://vault3:8202",
+          },
           "disable_mlock": true,
           "enable_response_header_raft_node_id": "true",
           "cluster_name" : "poc",
@@ -82,6 +89,53 @@ services:
       - vault1
     command: vault server -config=/vault/config/local.json
 
+  vault3:
+    image: hashicorp/vault:1.18.0
+    container_name: vault3
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8202
+      VAULT_LOCAL_CONFIG: |
+        {
+          "storage": {
+            "raft": {
+              "path": "/vault/raft",
+              "node_id": "vault3"
+            }
+          },
+          "listener": [{
+            "tcp": {
+              "address": "0.0.0.0:8202",
+              "cluster_address": "0.0.0.0:8201",
+              "tls_disable": true,
+              "tls_disable_client_certs" : "true"
+            }
+          }],
+          "retry_join": {
+              "leader_api_addr" : "https://vault1:8202",
+          },
+          "retry_join": {
+              "leader_api_addr" : "https://vault2:8202",
+          },
+          "disable_mlock": true,
+          "enable_response_header_raft_node_id": "true",
+          "cluster_name" : "poc",
+          "api_addr": "http://vault3:8202",
+          "cluster_addr": "http://vault3:8201",
+          "ui": true
+        }
+    ports:
+      - "8204:8201"  # Vault cluster port for inter-node communication
+    networks:
+      - vault-network  # Attach to the custom network
+    volumes:
+      - ./vault3-data:/vault/raft
+    cap_add:
+      - IPC_LOCK
+    depends_on:
+      - vault1
+      - vault2
+    command: vault server -config=/vault/config/local.json
+
   nginx:
     image: nginx:latest
     container_name: vault-nginx
@@ -92,6 +146,7 @@ services:
     depends_on:
       - vault1
       - vault2
+      - vault3
     networks:
       - vault-network  # Attach to the custom network
 
